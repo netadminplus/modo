@@ -6,7 +6,7 @@ Reads all values from environment variables / .env file.
 """
 
 from functools import lru_cache
-from typing import List
+from typing import List, Union
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # ── Bot ──────────────────────────────────────────────────────────────────
     bot_token: str
     bot_username: str = "your_bot"
-    admin_ids: List[int] = []
+    admin_ids: Union[str, List[int]] = ""
 
     # ── Database ─────────────────────────────────────────────────────────────
     database_url: str
@@ -57,8 +57,13 @@ class Settings(BaseSettings):
         if isinstance(v, int):
             return [v]
         if isinstance(v, str):
+            v = v.strip()
+            if not v:
+                return []
             return [int(x.strip()) for x in v.split(",") if x.strip()]
-        return v
+        if isinstance(v, list):
+            return [int(x) for x in v]
+        return []
 
 
 @lru_cache()
