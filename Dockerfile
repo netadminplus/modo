@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy wheels from builder and install
 COPY --from=builder /build/wheels /wheels
-RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+RUN pip install --no-cache-dir --no-deps /wheels/* && rm -rf /wheels
 
 # Copy application source
 COPY . .
