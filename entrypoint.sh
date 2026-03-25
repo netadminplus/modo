@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # =============================================================================
 # entrypoint.sh
 # Starts the FastAPI web dashboard and Aiogram bot concurrently.
