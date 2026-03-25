@@ -53,7 +53,9 @@ class Settings(BaseSettings):
     @field_validator("admin_ids", mode="before")
     @classmethod
     def parse_admin_ids(cls, v):
-        """Allow comma-separated string or list for ADMIN_IDS."""
+        """Allow comma-separated string, list, or single int for ADMIN_IDS."""
+        if isinstance(v, int):
+            return [v]
         if isinstance(v, str):
             return [int(x.strip()) for x in v.split(",") if x.strip()]
         return v
