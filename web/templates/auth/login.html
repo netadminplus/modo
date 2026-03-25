@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — TG Bot Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%); }
+    .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    .float { animation: float 3s ease-in-out infinite; }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+  <!-- Background decorations -->
+  <div class="fixed inset-0 overflow-hidden pointer-events-none">
+    <div class="absolute top-1/4 left-1/4 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl"></div>
+  </div>
+
+  <div class="relative z-10 w-full max-w-md">
+    <!-- Logo -->
+    <div class="text-center mb-8 float">
+      <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl glass mb-4">
+        <span class="text-4xl">🤖</span>
+      </div>
+      <h1 class="text-3xl font-bold text-white">TG Bot Dashboard</h1>
+      <p class="text-slate-400 mt-2">Manage your Telegram groups</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="glass rounded-2xl p-8 shadow-2xl">
+      <h2 class="text-xl font-semibold text-white mb-2">Sign In</h2>
+      <p class="text-slate-400 text-sm mb-6">
+        Authenticate securely with your Telegram account. No password needed.
+      </p>
+
+      <!-- Telegram Login Widget -->
+      <div class="flex justify-center">
+        <script
+          async
+          src="https://telegram.org/js/telegram-widget.js?22"
+          data-telegram-login="{{ bot_username }}"
+          data-size="large"
+          data-radius="8"
+          data-auth-url="https://{{ domain }}/auth/telegram"
+          data-request-access="write">
+        </script>
+      </div>
+
+      <div class="mt-6 pt-6 border-t border-white/10">
+        <p class="text-xs text-slate-500 text-center">
+          Only group administrators have access to the dashboard.
+          <br>Your data is secured and never shared.
+        </p>
+      </div>
+    </div>
+
+    <p class="text-center text-slate-600 text-xs mt-6">
+      Powered by Aiogram 3 + FastAPI
+    </p>
+  </div>
+</body>
+</html>

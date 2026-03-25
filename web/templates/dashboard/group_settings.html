@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ group.title }} — Settings</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; }
+    .glass { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+    /* Custom toggle switch */
+    .toggle { position:relative; display:inline-block; width:44px; height:24px; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .slider { position:absolute; cursor:pointer; inset:0; background:#374151; border-radius:24px; transition:.3s; }
+    .slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; }
+    input:checked + .slider { background:#6366f1; }
+    input:checked + .slider:before { transform:translateX(20px); }
+    .section-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 1rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .save-btn { transition: all 0.2s; }
+    .save-btn:hover { transform: scale(1.02); }
+    .toast { position: fixed; bottom: 2rem; right: 2rem; z-index: 999; transition: all 0.3s; }
+  </style>
+</head>
+<body class="text-white min-h-screen">
+  {% include "partials/sidebar.html" %}
+
+  <!-- Toast notification -->
+  <div id="toast" class="toast opacity-0 translate-y-4 glass rounded-xl px-5 py-3 flex items-center gap-3">
+    <span id="toast-icon">✅</span>
+    <span id="toast-msg">Saved successfully</span>
+  </div>
+
+  <div class="ml-64 p-8">
+    <!-- Header -->
+    <div class="flex items-center gap-3 mb-8">
+      <a href="/dashboard" class="text-slate-400 hover:text-white transition-colors">
+        ← Back
+      </a>
+      <div class="w-px h-5 bg-slate-700"></div>
+      <div>
+        <h1 class="text-2xl font-bold">{{ group.title }}</h1>
+        <p class="text-slate-400 text-sm">
+          {% if group.is_forum %}🗂️ Forum Group{% else %}💬 Group{% endif %}
+          &nbsp;·&nbsp; <span class="font-mono text-xs">{{ group.id }}</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Tab nav -->
+    <div class="flex gap-1 mb-6 glass rounded-xl p-1 w-fit">
+      <button onclick="showTab('moderation')" id="tab-moderation"
+        class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-indigo-500/30 text-indigo-300">
+        🛡️ Moderation
+      </button>
+      <button onclick="showTab('templates')" id="tab-templates"
+        class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white">
+        📝 Templates
+      </button>
+      <button onclick="showTab('topics')" id="tab-topics"
+        class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white">
+        🔒 Topic ACL
+      </button>
+      <button onclick="showTab('logs')" id="tab-logs"
+        class="tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white">
+        📋 Logs
+      </button>
+    </div>
+
+    <!-- ══════════════ MODERATION TAB ══════════════ -->
+    <div id="tab-moderation-content">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Feature Toggles -->
+        <div class="section-card">
+          <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+            <span>⚙️</span> Feature Toggles
+          </h2>
+          <div class="space-y-4">
+            {% set toggles = [
+              ('anti_flood', 'Anti-Flood', 'Rate-limit users who send too many messages'),
+              ('anti_spam', 'Anti-Spam', 'Detect and remove spam content'),
+              ('anti_link', 'Anti-Link', 'Block URLs from non-admins'),
+              ('word_filter', 'Word Filter', 'Remove messages with banned words'),
+              ('captcha_enabled', 'Captcha Verification', 'Require new members to solve a captcha'),
+              ('greet_new_members', 'Welcome Message', 'Send a greeting when users join'),
+              ('delete_join_messages', 'Delete Join Messages', 'Remove Telegram join service messages'),
+              ('delete_left_messages', 'Delete Left Messages', 'Remove Telegram left service messages'),
+              ('topic_acl_enabled', 'Topic ACL', 'Enforce Topic Access Control restrictions'),
+            ] %}
+            {% for key, label, desc in toggles %}
+            <div class="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+              <div>
+                <p class="text-sm font-medium text-white">{{ label }}</p>
+                <p class="text-xs text-slate-500">{{ desc }}</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="{{ key }}"
+                  {% if mod and mod[key] %}checked{% endif %}
+                  onchange="saveSetting('{{ key }}', this.checked)" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Anti-Flood Config -->
+        <div>
+          <div class="section-card mb-4">
+            <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+              <span>🌊</span> Anti-Flood Settings
+            </h2>
+            <div class="space-y-4">
+              <div>
+                <label class="text-xs text-slate-400 uppercase tracking-wider">Threshold (messages)</label>
+                <input type="number" id="flood_threshold" value="{{ mod.flood_threshold if mod else 5 }}"
+                  min="2" max="50"
+                  class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  onchange="saveSetting('flood_threshold', parseInt(this.value))" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 uppercase tracking-wider">Window (seconds)</label>
+                <input type="number" id="flood_window_secs" value="{{ mod.flood_window_secs if mod else 10 }}"
+                  min="3" max="300"
+                  class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  onchange="saveSetting('flood_window_secs', parseInt(this.value))" />
+              </div>
+              <div>
+                <label class="text-xs text-slate-400 uppercase tracking-wider">Action on Flood</label>
+                <select id="flood_action"
+                  class="w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none"
+                  onchange="saveSetting('flood_action', this.value)">
+                  <option value="mute" {% if mod and mod.flood_action == 'mute' %}selected{% endif %}>Mute (5 min)</option>
+                  <option value="kick" {% if mod and mod.flood_action == 'kick' %}selected{% endif %}>Kick</option>
+                  <option value="ban"  {% if mod and mod.flood_action == 'ban'  %}selected{% endif %}>Ban</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Word Filter -->
+          <div class="section-card">
+            <h2 class="font-semibold text-lg mb-4 flex items-center gap-2">
+              <span>🤬</span> Banned Words
+            </h2>
+            <textarea id="blocked_words" rows="4"
+              placeholder="Enter comma-separated words&#10;e.g. spam,scam,promo"
+              class="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white resize-none focus:border-indigo-500 focus:outline-none font-mono"
+              onchange="saveSetting('blocked_words', this.value)">{{ mod.blocked_words if mod and mod.blocked_words else '' }}</textarea>
+            <p class="text-xs text-slate-500 mt-2">Comma-separated. Case-insensitive.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══════════════ TEMPLATES TAB ══════════════ -->
+    <div id="tab-templates-content" class="hidden">
+      <div class="section-card">
+        <h2 class="font-semibold text-lg mb-6 flex items-center gap-2">
+          <span>📝</span> Message Templates
+          <span class="text-xs text-slate-500 font-normal ml-2">
+            Supports HTML. Variables: {user_mention}, {group_title}, etc.
+          </span>
+        </h2>
+        <div class="space-y-6" id="templates-container">
+          {% for tmpl in templates %}
+          <div class="border border-white/10 rounded-xl p-4">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-sm font-mono font-semibold text-indigo-300">{{ tmpl.key }}</span>
+              <button onclick="saveTemplate('{{ tmpl.key }}')"
+                class="text-xs px-3 py-1 rounded-lg bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 border border-indigo-500/30 transition-colors">
+                Save
+              </button>
+            </div>
+            <textarea id="tmpl-{{ tmpl.key }}" rows="3"
+              class="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white resize-y focus:border-indigo-500 focus:outline-none font-mono"
+              >{{ tmpl.content }}</textarea>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════ TOPIC ACL TAB ══════════════ -->
+    <div id="tab-topics-content" class="hidden">
+      <div class="section-card mb-4">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-lg flex items-center gap-2">
+            <span>🔒</span> Topic Access Control
+          </h2>
+          <button onclick="showAddTopicModal()"
+            class="text-sm px-4 py-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white transition-colors">
+            + Restrict Topic
+          </button>
+        </div>
+        <p class="text-slate-400 text-sm mb-4">
+          Restricted topics only allow admins and whitelisted users to post. Others' messages are auto-deleted.
+        </p>
+
+        {% if restricted_topics %}
+        <div class="space-y-3" id="topics-list">
+          {% for tid in restricted_topics %}
+          <div class="flex items-center justify-between glass rounded-xl p-4" id="topic-{{ tid }}">
+            <div>
+              <p class="font-mono text-sm text-indigo-300">Thread ID: {{ tid }}</p>
+              <p class="text-xs text-slate-500 mt-1">0 whitelisted users</p>
+            </div>
+            <div class="flex gap-2">
+              <a href="/dashboard/group/{{ group.id }}/topics" class="text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors">
+                Manage Users
+              </a>
+              <button onclick="unrestrict({{ tid }})"
+                class="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 transition-colors">
+                Remove
+              </button>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12 text-slate-500">
+          <div class="text-4xl mb-3">🔓</div>
+          <p>No restricted topics yet.</p>
+          <p class="text-sm">Use the button above or send <code>/restrict_topic</code> inside a topic.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ══════════════ LOGS TAB ══════════════ -->
+    <div id="tab-logs-content" class="hidden">
+      <div class="section-card">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-lg">📋 Activity Log</h2>
+          <button onclick="loadLogs()" class="text-xs px-3 py-1.5 glass rounded-lg hover:bg-white/10 transition-colors">
+            🔄 Refresh
+          </button>
+        </div>
+        <div id="logs-container" class="space-y-2 max-h-[600px] overflow-y-auto">
+          <div class="text-center text-slate-500 py-8">Loading logs...</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Add Topic Modal -->
+  <div id="add-topic-modal" class="fixed inset-0 bg-black/60 hidden z-50 flex items-center justify-center">
+    <div class="glass rounded-2xl p-6 w-full max-w-md mx-4">
+      <h3 class="font-semibold text-lg mb-4">Restrict a Topic</h3>
+      <label class="text-xs text-slate-400 uppercase tracking-wider">Thread ID</label>
+      <input type="number" id="new-thread-id" placeholder="e.g. 12345"
+        class="w-full mt-1 mb-4 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-white focus:border-indigo-500 focus:outline-none" />
+      <p class="text-xs text-slate-500 mb-4">
+        Find the thread ID by forwarding a topic message to @userinfobot or checking the topic URL.
+      </p>
+      <div class="flex gap-3">
+        <button onclick="addRestriction()" class="flex-1 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg font-medium transition-colors">
+          Restrict Topic
+        </button>
+        <button onclick="hideModal()" class="flex-1 py-2 glass rounded-lg hover:bg-white/10 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GROUP_ID = {{ group.id }};
+
+    // ── Tab switching ─────────────────────────────────────────────────────
+    function showTab(name) {
+      ['moderation','templates','topics','logs'].forEach(t => {
+        document.getElementById(`tab-${t}-content`).classList.add('hidden');
+        document.getElementById(`tab-${t}`).className =
+          'tab-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-white';
+      });
+      document.getElementById(`tab-${name}-content`).classList.remove('hidden');
+      document.getElementById(`tab-${name}`).className =
+        'tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-indigo-500/30 text-indigo-300';
+
+      if (name === 'logs') loadLogs();
+    }
+
+    // ── Save a single setting ─────────────────────────────────────────────
+    async function saveSetting(key, value) {
+      try {
+        const res = await fetch(`/api/group/${GROUP_ID}/settings`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ [key]: value }),
+        });
+        if (res.ok) showToast('✅', 'Saved!');
+        else showToast('❌', 'Save failed');
+      } catch (e) {
+        showToast('❌', 'Network error');
+      }
+    }
+
+    // ── Save a template ───────────────────────────────────────────────────
+    async function saveTemplate(key) {
+      const content = document.getElementById(`tmpl-${key}`).value;
+      try {
+        const res = await fetch(`/api/group/${GROUP_ID}/template/${key}`, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ content }),
+        });
+        if (res.ok) showToast('✅', `Template "${key}" saved!`);
+        else showToast('❌', 'Save failed');
+      } catch (e) {
+        showToast('❌', 'Network error');
+      }
+    }
+
+    // ── Topic ACL ─────────────────────────────────────────────────────────
+    function showAddTopicModal() { document.getElementById('add-topic-modal').classList.remove('hidden'); }
+    function hideModal() { document.getElementById('add-topic-modal').classList.add('hidden'); }
+
+    async function addRestriction() {
+      const tid = parseInt(document.getElementById('new-thread-id').value);
+      if (!tid) return;
+      const res = await fetch(`/api/group/${GROUP_ID}/topic/${tid}/restrict`, { method: 'POST' });
+      if (res.ok) { showToast('✅', 'Topic restricted!'); hideModal(); setTimeout(()=>location.reload(), 500); }
+    }
+
+    async function unrestrict(tid) {
+      if (!confirm(`Remove restriction from topic ${tid}?`)) return;
+      const res = await fetch(`/api/group/${GROUP_ID}/topic/${tid}/restrict`, { method: 'DELETE' });
+      if (res.ok) {
+        document.getElementById(`topic-${tid}`)?.remove();
+        showToast('✅', 'Restriction removed');
+      }
+    }
+
+    // ── Activity logs ─────────────────────────────────────────────────────
+    async function loadLogs() {
+      const container = document.getElementById('logs-container');
+      container.innerHTML = '<div class="text-center text-slate-500 py-8">Loading...</div>';
+      try {
+        const res = await fetch(`/api/group/${GROUP_ID}/logs?limit=100`);
+        const logs = await res.json();
+        if (!logs.length) {
+          container.innerHTML = '<div class="text-center text-slate-500 py-8">No activity yet.</div>';
+          return;
+        }
+        container.innerHTML = logs.map(log => `
+          <div class="glass rounded-lg px-4 py-2.5 flex items-center justify-between text-sm">
+            <div class="flex items-center gap-3">
+              <span class="font-mono text-xs px-2 py-0.5 rounded bg-slate-700 text-indigo-300">${log.action}</span>
+              ${log.target_id ? `<span class="text-slate-400">→ <code class="text-xs">${log.target_id}</code></span>` : ''}
+              ${log.detail ? `<span class="text-slate-500 text-xs">${log.detail}</span>` : ''}
+            </div>
+            <span class="text-slate-600 text-xs whitespace-nowrap ml-4">${new Date(log.created_at).toLocaleString()}</span>
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = '<div class="text-center text-red-400 py-8">Failed to load logs.</div>';
+      }
+    }
+
+    // ── Toast ─────────────────────────────────────────────────────────────
+    let toastTimer;
+    function showToast(icon, msg) {
+      const t = document.getElementById('toast');
+      document.getElementById('toast-icon').textContent = icon;
+      document.getElementById('toast-msg').textContent = msg;
+      t.className = t.className.replace('opacity-0 translate-y-4','opacity-100 translate-y-0');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        t.className = t.className.replace('opacity-100 translate-y-0','opacity-0 translate-y-4');
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+"""
+bot/handlers/group_setup.py
+----------------------------
+Handles the bot being added to or removed from a group.
+On join: registers the group in DB, syncs admins, sends a setup greeting.
+On removal: marks the group as inactive.
+"""
+
+import logging
+
+from aiogram import F, Router
+from aiogram.filters import IS_MEMBER, IS_NOT_MEMBER, ChatMemberUpdatedFilter
+from aiogram.types import ChatMemberUpdated
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from core.services.group_service import get_or_create_group
+from core.utils.admin_sync import sync_admins_for_group
+
+router = Router(name="group_setup")
+logger = logging.getLogger(__name__)
+
+
+@router.my_chat_member(
+    ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER)
+)
+async def bot_added_to_group(event: ChatMemberUpdated, db: AsyncSession) -> None:
+    """
+    Fires when the bot is added to (or promoted in) a group.
+    Registers the group and syncs the admin list.
+    """
+    chat = event.chat
+    if chat.type not in ("group", "supergroup"):
+        return
+
+    logger.info("Bot added to group: %s (%d)", chat.title, chat.id)
+
+    # Register group in DB (creates default settings + templates)
+    group = await get_or_create_group(
+        db,
+        chat_id=chat.id,
+        title=chat.title or "Unknown",
+        is_forum=bool(getattr(chat, "is_forum", False)),
+        username=chat.username,
+    )
+
+    # Sync admin list
+    from bot.main import bot
+    await sync_admins_for_group(bot, db, chat.id)
+
+    # Send a greeting message
+    try:
+        await event.bot.send_message(
+            chat.id,
+            "👋 <b>Hi! I'm your Group Manager Bot.</b>\n\n"
+            "I'm now ready to help you manage this group.\n\n"
+            "📌 <b>Quick start:</b>\n"
+            "• <code>/settings</code> — Open the web dashboard\n"
+            "• <code>/restrict_topic</code> — Restrict a forum topic\n"
+            "• <code>/warn</code> <i>(reply)</i> — Warn a user\n\n"
+            "Make sure I'm an admin with enough permissions to delete messages!",
+            parse_mode="HTML",
+        )
+    except Exception:
+        pass  # Can't send if bot lacks permission
+
+
+@router.my_chat_member(
+    ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER)
+)
+async def bot_removed_from_group(event: ChatMemberUpdated, db: AsyncSession) -> None:
+    """Mark the group as inactive when the bot is removed."""
+    chat = event.chat
+    if chat.type not in ("group", "supergroup"):
+        return
+
+    logger.info("Bot removed from group: %s (%d)", chat.title, chat.id)
+
+    from sqlalchemy import update
+    from core.models.database import Group
+
+    await db.execute(
+        update(Group).where(Group.id == chat.id).values(is_active=False)
+    )
+    await db.commit()

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Topic ACL — {{ group.title }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; }
+    .glass { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+  </style>
+</head>
+<body class="text-white min-h-screen">
+  {% include "partials/sidebar.html" %}
+
+  <div class="ml-64 p-8">
+    <div class="flex items-center gap-3 mb-8">
+      <a href="/dashboard/group/{{ group.id }}" class="text-slate-400 hover:text-white">← Back to Settings</a>
+      <div class="w-px h-5 bg-slate-700"></div>
+      <h1 class="text-2xl font-bold">Topic ACL — {{ group.title }}</h1>
+    </div>
+
+    {% for tid in restricted_topics %}
+    <div class="glass rounded-2xl p-6 mb-6">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="font-semibold text-lg">🔒 Topic <code class="text-indigo-300">{{ tid }}</code></h2>
+          <p class="text-slate-400 text-sm mt-1">{{ topic_users.get(tid, []) | length }} whitelisted user(s)</p>
+        </div>
+        <button onclick="unrestrict({{ tid }})"
+          class="text-xs px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30 transition-colors">
+          Remove Restriction
+        </button>
+      </div>
+
+      <!-- Whitelisted users -->
+      <div id="users-{{ tid }}" class="space-y-2 mb-4">
+        {% for uid in topic_users.get(tid, []) %}
+        <div class="flex items-center justify-between glass rounded-lg px-4 py-2" id="user-{{ tid }}-{{ uid }}">
+          <span class="font-mono text-sm text-slate-300">{{ uid }}</span>
+          <button onclick="removeUser({{ tid }}, {{ uid }})"
+            class="text-xs text-red-400 hover:text-red-300 transition-colors">Remove</button>
+        </div>
+        {% else %}
+        <p class="text-slate-500 text-sm italic">No whitelisted users. Admins can always post.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Add user form -->
+      <div class="flex gap-2 mt-3">
+        <input type="number" id="add-user-{{ tid }}" placeholder="User ID to whitelist"
+          class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none" />
+        <button onclick="addUser({{ tid }})"
+          class="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 rounded-lg text-sm font-medium transition-colors">
+          Add
+        </button>
+      </div>
+    </div>
+    {% else %}
+    <div class="glass rounded-2xl p-16 text-center">
+      <div class="text-5xl mb-4">🔓</div>
+      <h3 class="text-xl font-semibold mb-2">No Restricted Topics</h3>
+      <p class="text-slate-400">Use <code>/restrict_topic</code> in a topic or the settings panel to add restrictions.</p>
+    </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    const GROUP_ID = {{ group.id }};
+
+    async function addUser(tid) {
+      const input = document.getElementById(`add-user-${tid}`);
+      const uid = parseInt(input.value);
+      if (!uid) return;
+      const res = await fetch(`/api/group/${GROUP_ID}/topic/${tid}/user/${uid}`, { method: 'POST' });
+      if (res.ok) {
+        const container = document.getElementById(`users-${tid}`);
+        const el = document.createElement('div');
+        el.id = `user-${tid}-${uid}`;
+        el.className = 'flex items-center justify-between glass rounded-lg px-4 py-2';
+        el.innerHTML = `<span class="font-mono text-sm text-slate-300">${uid}</span>
+          <button onclick="removeUser(${tid},${uid})" class="text-xs text-red-400 hover:text-red-300 transition-colors">Remove</button>`;
+        container.appendChild(el);
+        input.value = '';
+      }
+    }
+
+    async function removeUser(tid, uid) {
+      const res = await fetch(`/api/group/${GROUP_ID}/topic/${tid}/user/${uid}`, { method: 'DELETE' });
+      if (res.ok) document.getElementById(`user-${tid}-${uid}`)?.remove();
+    }
+
+    async function unrestrict(tid) {
+      if (!confirm(`Remove all restrictions from topic ${tid}?`)) return;
+      const res = await fetch(`/api/group/${GROUP_ID}/topic/${tid}/restrict`, { method: 'DELETE' });
+      if (res.ok) location.reload();
+    }
+  </script>
+</body>
+</html>

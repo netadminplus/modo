@@ -1,0 +1,37 @@
+# =============================================================================
+# requirements.txt
+# Pinned for reproducible builds.  Run: pip install -r requirements.txt
+# =============================================================================
+
+# ── Telegram Bot ──────────────────────────────────────────────────────────────
+aiogram==3.13.1
+aiohttp==3.10.11
+
+# ── Web Framework ─────────────────────────────────────────────────────────────
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+jinja2==3.1.4
+python-multipart==0.0.17
+itsdangerous==2.2.0           # Signed cookies / sessions
+
+# ── Database ──────────────────────────────────────────────────────────────────
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0               # Async PostgreSQL driver
+alembic==1.14.0               # Database migrations
+
+# ── Redis ─────────────────────────────────────────────────────────────────────
+redis[hiredis]==5.2.1         # Async Redis client
+
+# ── Configuration ─────────────────────────────────────────────────────────────
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# ── Utilities ─────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1
+structlog==24.4.0             # Structured logging
+tenacity==9.0.0               # Retry logic
+
+# ── Dev / Testing (optional — comment out for minimal prod image) ─────────────
+# pytest==8.3.3
+# pytest-asyncio==0.24.0
+# httpx==0.28.0               # Async test client for FastAPI

@@ -1,0 +1,161 @@
+# =============================================================================
+# docker-compose.yml
+# Full-stack: PostgreSQL + Redis + App (Bot + Web) + Nginx/SSL
+#
+# Usage:
+#   cp .env.example .env          # fill in secrets
+#   docker compose up -d          # start everything
+#   docker compose logs -f app    # follow app logs
+# =============================================================================
+
+version: "3.9"
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: tgbot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB:       ${POSTGRES_DB}
+      PGDATA:            /var/lib/postgresql/data/pgdata
+    volumes:
+      - ./data/pg_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # Bind to localhost only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - botnet
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: tgbot_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --appendfsync everysec
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - ./data/redis_data:/data
+    ports:
+      - "127.0.0.1:6379:6379"   # Bind to localhost only
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - botnet
+
+  # ── Application (Bot + Web Dashboard) ────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: tgbot_app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Override host references to use Docker service names
+      POSTGRES_HOST: postgres
+      REDIS_HOST:    redis
+      DATABASE_URL:  postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL:     redis://:${REDIS_PASSWORD}@redis:6379/0
+    volumes:
+      - ./data/logs:/app/data/logs    # Persist logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - botnet
+    labels:
+      # Traefik labels (used when PROXY=traefik)
+      - "traefik.enable=true"
+      - "traefik.http.routers.tgbot.rule=Host(`${DOMAIN}`)"
+      - "traefik.http.routers.tgbot.entrypoints=websecure"
+      - "traefik.http.routers.tgbot.tls.certresolver=letsencrypt"
+      - "traefik.http.services.tgbot.loadbalancer.server.port=${WEB_PORT:-8000}"
+
+  # ── Nginx Reverse Proxy + Certbot SSL ────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: tgbot_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./data/certbot/conf:/etc/letsencrypt:ro
+      - ./data/certbot/www:/var/www/certbot:ro
+      - ./data/logs/nginx:/var/log/nginx
+    depends_on:
+      - app
+    networks:
+      - botnet
+    command: >
+      sh -c "nginx -g 'daemon off;'"
+
+  # ── Certbot (one-shot SSL provisioning + renewal) ────────────────────────────
+  certbot:
+    image: certbot/certbot:latest
+    container_name: tgbot_certbot
+    restart: "no"
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    entrypoint: >
+      sh -c "
+        certbot certonly --webroot
+          -w /var/www/certbot
+          -d ${DOMAIN}
+          --email ${CERTBOT_EMAIL}
+          --agree-tos
+          --no-eff-email
+          --non-interactive
+      "
+    networks:
+      - botnet
+
+  # ── Certbot auto-renew (runs every 12 hours) ──────────────────────────────────
+  certbot_renew:
+    image: certbot/certbot:latest
+    container_name: tgbot_certbot_renew
+    restart: unless-stopped
+    volumes:
+      - ./data/certbot/conf:/etc/letsencrypt
+      - ./data/certbot/www:/var/www/certbot
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do
+        certbot renew --quiet;
+        sleep 12h & wait $${!};
+      done"
+    networks:
+      - botnet
+
+# ── Networks ──────────────────────────────────────────────────────────────────
+networks:
+  botnet:
+    name: tgbot_network
+    driver: bridge
+
+# ── Named volumes (alternative to bind mounts for pg / redis) ────────────────
+# Uncomment if you prefer Docker-managed volumes over ./data bind mounts:
+# volumes:
+#   pg_data:
+#   redis_data:
