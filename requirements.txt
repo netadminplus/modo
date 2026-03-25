@@ -18,6 +18,7 @@ itsdangerous==2.2.0           # Signed cookies / sessions
 sqlalchemy[asyncio]==2.0.36
 asyncpg==0.30.0               # Async PostgreSQL driver
 alembic==1.14.0               # Database migrations
+greenlet==3.0.3               # Required by SQLAlchemy async
 
 # ── Redis ─────────────────────────────────────────────────────────────────────
 redis[hiredis]==5.2.1         # Async Redis client
