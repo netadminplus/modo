@@ -53,4 +53,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Default: run both bot (polling) + web server via the entrypoint script
-CMD ["sh", "entrypoint.sh"]
+CMD ["bash", "entrypoint.sh"]
