@@ -41,8 +41,8 @@ RUN pip install --no-cache-dir --no-deps /wheels/* && rm -rf /wheels
 # Copy application source
 COPY . .
 
-# Create data directories with correct permissions
-RUN mkdir -p data/pg_data data/redis_data data/logs && \
+# Create required directories with correct permissions
+RUN mkdir -p data/pg_data data/redis_data data/logs web/static && \
     chown -R botuser:botuser /app
 
 # Switch to non-root user
