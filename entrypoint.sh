@@ -44,12 +44,14 @@ echo "✅  Database initialised."
 
 # ── Start web dashboard (background) ─────────────────────────────────────────
 echo "🌐  Starting FastAPI web dashboard on port ${WEB_PORT:-8000}..."
+# Convert LOG_LEVEL to lowercase for uvicorn
+LOG_LEVEL_LOWER=$(echo "${LOG_LEVEL:-info}" | tr '[:upper:]' '[:lower:]')
 uvicorn web.app:app \
     --host 0.0.0.0 \
     --port "${WEB_PORT:-8000}" \
     --workers 2 \
     --access-log \
-    --log-level "${LOG_LEVEL:-info}" &
+    --log-level "$LOG_LEVEL_LOWER" &
 
 WEB_PID=$!
 
