@@ -30,6 +30,7 @@ pydantic-settings==2.6.1
 python-dotenv==1.0.1
 structlog==24.4.0             # Structured logging
 tenacity==9.0.0               # Retry logic
+typing-extensions>=4.6.0      # Required by SQLAlchemy
 
 # ── Dev / Testing (optional — comment out for minimal prod image) ─────────────
 # pytest==8.3.3
