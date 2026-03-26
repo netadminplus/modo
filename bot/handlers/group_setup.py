@@ -25,19 +25,11 @@ logger = logging.getLogger(__name__)
 @router.message()
 async def test_handler(message: Message) -> None:
     """Test handler to verify bot receives messages."""
-    try:
-        logger.warning("TEST HANDLER: Message received: text='%s', chat=%s, type=%s, thread=%s",
-                    message.text, message.chat.title, message.chat.type, message.message_thread_id)
-        if message.text and message.text.strip().lower() == "test":
-            logger.warning("TEST HANDLER TRIGGERED in %s by %s", message.chat.title, message.from_user.username if message.from_user else "unknown")
-            await message.reply(f"✅ Test received! Chat type: {message.chat.type}, Thread: {message.message_thread_id}")
-            logger.warning("TEST HANDLER: Reply sent successfully")
-    except Exception as e:
-        logger.error("TEST HANDLER ERROR: %s", str(e), exc_info=True)
-
-
-# Log router registration
-logger.warning("group_setup router registered: test_handler, bot_added_to_group, bot_removed_from_group, register_group")
+    print(f"!!! TEST HANDLER CALLED: text='{message.text}', chat={message.chat.title}, type={message.chat.type}")
+    if message.text and message.text.strip().lower() == "test":
+        print(f"!!! TEST MATCHED in {message.chat.title}")
+        await message.reply(f"✅ Test received! Chat type: {message.chat.type}, Thread: {message.message_thread_id}")
+        print("!!! TEST REPLY SENT")
 
 
 @router.my_chat_member(
