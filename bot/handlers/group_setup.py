@@ -24,23 +24,12 @@ logger = logging.getLogger(__name__)
 
 print(f"!!! group_setup router created with {len(router.handlers)} handlers")
 
-# Startup message handler
-@router.message(lambda x: x.text == "!STARTUP_TEST!")
+# Startup message handler - very specific command
+@router.command("startuptest")
 async def startup_test(message: Message) -> None:
     """Test handler to verify module is loaded."""
     print("!!! STARTUP_TEST HANDLER CALLED !!!")
     await message.reply("✅ Module loaded! Test successful.")
-
-
-# Simple test handler - responds to "test" message
-@router.message()
-async def test_handler(message: Message) -> None:
-    """Test handler to verify bot receives messages."""
-    print(f"!!! TEST HANDLER CALLED: text='{message.text}', chat={message.chat.title}, type={message.chat.type}")
-    if message.text and message.text.strip().lower() == "test":
-        print(f"!!! TEST MATCHED in {message.chat.title}")
-        await message.reply(f"✅ Test received! Chat type: {message.chat.type}, Thread: {message.message_thread_id}")
-        print("!!! TEST REPLY SENT")
 
 
 @router.my_chat_member(
