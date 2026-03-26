@@ -21,6 +21,14 @@ router = Router(name="group_setup")
 logger = logging.getLogger(__name__)
 
 
+# Simple test handler - responds to "test" message
+@router.message(F.text == "test")
+async def test_handler(message: Message) -> None:
+    """Test handler to verify bot receives messages."""
+    logger.info("TEST HANDLER TRIGGERED in %s", message.chat.title)
+    await message.reply("✅ Test received!")
+
+
 @router.my_chat_member(
     ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER)
 )
