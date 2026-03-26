@@ -23,14 +23,24 @@ from core.models.database import init_db
 from core.services.cache_service import close_redis
 
 # ── Logging ───────────────────────────────────────────────────────────────────
+# Ensure log directory exists
+import os
+os.makedirs("data/logs", exist_ok=True)
+
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("data/logs/bot.log"),
     ],
 )
+# Add file handler separately with error handling
+try:
+    file_handler = logging.FileHandler("data/logs/bot.log")
+    logging.getLogger().addHandler(file_handler)
+except (PermissionError, OSError):
+    logging.warning("Could not create bot.log - continuing without file logging")
+
 logger = logging.getLogger(__name__)
 
 # ── Bot instance (module-level for access in helpers) ─────────────────────────
