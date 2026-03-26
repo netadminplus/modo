@@ -36,6 +36,10 @@ async def test_handler(message: Message) -> None:
         logger.error("TEST HANDLER ERROR: %s", str(e), exc_info=True)
 
 
+# Log router registration
+logger.warning("group_setup router registered: test_handler, bot_added_to_group, bot_removed_from_group, register_group")
+
+
 @router.my_chat_member(
     ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER)
 )
