@@ -43,6 +43,7 @@ COPY . .
 
 # Create required directories with correct permissions
 RUN mkdir -p data/pg_data data/redis_data data/logs web/static && \
+    touch data/logs/bot.log && \
     chown -R botuser:botuser /app
 
 # Switch to non-root user
