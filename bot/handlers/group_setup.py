@@ -84,7 +84,7 @@ async def bot_removed_from_group(event: ChatMemberUpdated, db: AsyncSession) -> 
     await db.commit()
 
 
-@router.command("register")
+@router.command("register", F.chat.type.in_(("group", "supergroup")))
 async def register_group(message: Message, db: AsyncSession) -> None:
     """
     Manually register the current group (fallback if bot missed the join event).
