@@ -92,16 +92,17 @@ async def register_group(message: Message, db: AsyncSession) -> None:
     """
     chat = message.chat
     if chat.type not in ("group", "supergroup"):
-        await message.reply("This command only works in groups.")
-        return
-
+        return  # Silently ignore in private chats
+    
     # Check if user is admin
     from bot.main import bot
-    member = await bot.get_chat_member(chat.id, message.from_user.id)
-    if member.status not in ("creator", "administrator"):
-        await message.reply("Only group admins can use this command.")
-        return
-
+    try:
+        member = await bot.get_chat_member(chat.id, message.from_user.id)
+        if member.status not in ("creator", "administrator"):
+            return  # Silently ignore non-admins
+    except Exception:
+        return  # Can't check membership
+    
     logger.info("Manually registering group: %s (%d)", chat.title, chat.id)
 
     # Register group in DB
@@ -116,10 +117,22 @@ async def register_group(message: Message, db: AsyncSession) -> None:
     # Sync admin list
     await sync_admins_for_group(bot, db, chat.id)
 
-    await message.reply(
-        f"✅ <b>Group registered!</b>\n\n"
-        f"Title: {chat.title}\n"
-        f"ID: <code>{chat.id}</code>\n\n"
-        "It should now appear in your web dashboard.",
-        parse_mode="HTML",
-    )
+    # Try to send confirmation in group, fallback to private message
+    try:
+        await message.reply(
+            f"✅ <b>Group registered!</b>\n\n"
+            f"Title: {chat.title}\n"
+            f"ID: <code>{chat.id}</code>\n\n"
+            "It should now appear in your web dashboard.",
+            parse_mode="HTML",
+        )
+    except Exception as e:
+        # Can't send in group, send via private message
+        logger.warning("Could not send confirmation in group %s: %s", chat.id, str(e))
+        try:
+            await message.answer(
+                "✅ Group registered! Check your dashboard.",
+                parse_mode="HTML",
+            )
+        except Exception:
+            pass  # Give up silently
