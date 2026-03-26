@@ -13,6 +13,7 @@ from aiogram.filters import IS_MEMBER, IS_NOT_MEMBER, ChatMemberUpdatedFilter, C
 from aiogram.types import ChatMemberUpdated, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.filters.admin_filter import IsGroupAdmin
 from core.services.group_service import get_or_create_group
 from core.utils.admin_sync import sync_admins_for_group
 
@@ -84,7 +85,7 @@ async def bot_removed_from_group(event: ChatMemberUpdated, db: AsyncSession) -> 
     await db.commit()
 
 
-@router.message(Command("register"))
+@router.message(Command("register"), IsGroupAdmin())
 async def register_group(message: Message, db: AsyncSession) -> None:
     """
     Manually register the current group (fallback if bot missed the join event).
@@ -96,18 +97,6 @@ async def register_group(message: Message, db: AsyncSession) -> None:
     if chat.type not in ("group", "supergroup"):
         logger.warning("/register used in non-group chat: %s", chat.type)
         return  # Silently ignore in private chats
-    
-    # Check if user is admin
-    from bot.main import bot
-    try:
-        member = await bot.get_chat_member(chat.id, message.from_user.id)
-        logger.info("User %s status: %s", message.from_user.username, member.status)
-        if member.status not in ("creator", "administrator"):
-            logger.warning("Non-admin tried to register group")
-            return  # Silently ignore non-admins
-    except Exception as e:
-        logger.error("Could not check membership: %s", str(e))
-        return  # Can't check membership
     
     logger.info("Manually registering group: %s (%d)", chat.title, chat.id)
 
@@ -121,6 +110,7 @@ async def register_group(message: Message, db: AsyncSession) -> None:
     )
 
     # Sync admin list
+    from bot.main import bot
     await sync_admins_for_group(bot, db, chat.id)
 
     # Try to send confirmation in group, fallback to private message
