@@ -24,6 +24,13 @@ logger = logging.getLogger(__name__)
 
 print(f"!!! group_setup router created with {len(router.handlers)} handlers")
 
+# Startup message handler
+@router.message(lambda x: x.text == "!STARTUP_TEST!")
+async def startup_test(message: Message) -> None:
+    """Test handler to verify module is loaded."""
+    print("!!! STARTUP_TEST HANDLER CALLED !!!")
+    await message.reply("✅ Module loaded! Test successful.")
+
 
 # Simple test handler - responds to "test" message
 @router.message()
