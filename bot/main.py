@@ -63,11 +63,9 @@ def create_dispatcher() -> Dispatcher:
     # ── Register routers (order matters — guards first) ────────────────────
     # topic_acl.router has the guard that must run BEFORE regular handlers
     dp.include_router(group_setup.router)
-    print(f"!!! group_setup router included, handlers: {len(group_setup.router.handlers)}")
     dp.include_router(topic_acl.router)
     dp.include_router(welcome.router)
     dp.include_router(moderation.router)
-    print(f"!!! All routers included. Total handlers: {len(dp.message.handlers)}")
 
     return dp
 

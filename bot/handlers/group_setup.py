@@ -22,8 +22,6 @@ print("!!! group_setup.py MODULE LOADED !!!")
 router = Router(name="group_setup")
 logger = logging.getLogger(__name__)
 
-print(f"!!! group_setup router created with {len(router.handlers)} handlers")
-
 # Startup message handler - very specific command
 @router.command("startuptest")
 async def startup_test(message: Message) -> None:
