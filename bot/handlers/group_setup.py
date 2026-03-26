@@ -22,11 +22,12 @@ logger = logging.getLogger(__name__)
 
 
 # Simple test handler - responds to "test" message
-@router.message(F.text == "test")
+@router.message()
 async def test_handler(message: Message) -> None:
     """Test handler to verify bot receives messages."""
-    logger.info("TEST HANDLER TRIGGERED in %s", message.chat.title)
-    await message.reply("✅ Test received!")
+    if message.text and message.text.strip().lower() == "test":
+        logger.info("TEST HANDLER TRIGGERED in %s by %s", message.chat.title, message.from_user.username if message.from_user else "unknown")
+        await message.reply(f"✅ Test received! Chat type: {message.chat.type}, Thread: {message.message_thread_id}")
 
 
 @router.my_chat_member(
