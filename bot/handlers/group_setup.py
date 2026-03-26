@@ -9,8 +9,8 @@ On removal: marks the group as inactive.
 import logging
 
 from aiogram import F, Router
-from aiogram.filters import IS_MEMBER, IS_NOT_MEMBER, ChatMemberUpdatedFilter
-from aiogram.types import ChatMemberUpdated
+from aiogram.filters import IS_MEMBER, IS_NOT_MEMBER, ChatMemberUpdatedFilter, Command
+from aiogram.types import ChatMemberUpdated, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.services.group_service import get_or_create_group
@@ -82,3 +82,44 @@ async def bot_removed_from_group(event: ChatMemberUpdated, db: AsyncSession) -> 
         update(Group).where(Group.id == chat.id).values(is_active=False)
     )
     await db.commit()
+
+
+@router.command("register")
+async def register_group(message: Message, db: AsyncSession) -> None:
+    """
+    Manually register the current group (fallback if bot missed the join event).
+    Only works in groups, only admins can use it.
+    """
+    chat = message.chat
+    if chat.type not in ("group", "supergroup"):
+        await message.reply("This command only works in groups.")
+        return
+
+    # Check if user is admin
+    from bot.main import bot
+    member = await bot.get_chat_member(chat.id, message.from_user.id)
+    if member.status not in ("creator", "administrator"):
+        await message.reply("Only group admins can use this command.")
+        return
+
+    logger.info("Manually registering group: %s (%d)", chat.title, chat.id)
+
+    # Register group in DB
+    group = await get_or_create_group(
+        db,
+        chat_id=chat.id,
+        title=chat.title or "Unknown",
+        is_forum=bool(getattr(chat, "is_forum", False)),
+        username=chat.username,
+    )
+
+    # Sync admin list
+    await sync_admins_for_group(bot, db, chat.id)
+
+    await message.reply(
+        f"✅ <b>Group registered!</b>\n\n"
+        f"Title: {chat.title}\n"
+        f"ID: <code>{chat.id}</code>\n\n"
+        "It should now appear in your web dashboard.",
+        parse_mode="HTML",
+    )
