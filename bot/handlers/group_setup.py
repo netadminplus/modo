@@ -17,8 +17,12 @@ from bot.filters.admin_filter import IsGroupAdmin
 from core.services.group_service import get_or_create_group
 from core.utils.admin_sync import sync_admins_for_group
 
+print("!!! group_setup.py MODULE LOADED !!!")
+
 router = Router(name="group_setup")
 logger = logging.getLogger(__name__)
+
+print(f"!!! group_setup router created with {len(router.handlers)} handlers")
 
 
 # Simple test handler - responds to "test" message
