@@ -84,23 +84,29 @@ async def bot_removed_from_group(event: ChatMemberUpdated, db: AsyncSession) -> 
     await db.commit()
 
 
-@router.command("register", F.chat.type.in_(("group", "supergroup")))
+@router.command("register")
 async def register_group(message: Message, db: AsyncSession) -> None:
     """
     Manually register the current group (fallback if bot missed the join event).
     Only works in groups, only admins can use it.
     """
     chat = message.chat
+    logger.info("Received /register command in: %s (%d) type=%s", chat.title, chat.id, chat.type)
+    
     if chat.type not in ("group", "supergroup"):
+        logger.warning("/register used in non-group chat: %s", chat.type)
         return  # Silently ignore in private chats
     
     # Check if user is admin
     from bot.main import bot
     try:
         member = await bot.get_chat_member(chat.id, message.from_user.id)
+        logger.info("User %s status: %s", message.from_user.username, member.status)
         if member.status not in ("creator", "administrator"):
+            logger.warning("Non-admin tried to register group")
             return  # Silently ignore non-admins
-    except Exception:
+    except Exception as e:
+        logger.error("Could not check membership: %s", str(e))
         return  # Can't check membership
     
     logger.info("Manually registering group: %s (%d)", chat.title, chat.id)
@@ -126,6 +132,7 @@ async def register_group(message: Message, db: AsyncSession) -> None:
             "It should now appear in your web dashboard.",
             parse_mode="HTML",
         )
+        logger.info("Sent confirmation in group")
     except Exception as e:
         # Can't send in group, send via private message
         logger.warning("Could not send confirmation in group %s: %s", chat.id, str(e))
@@ -134,5 +141,7 @@ async def register_group(message: Message, db: AsyncSession) -> None:
                 "✅ Group registered! Check your dashboard.",
                 parse_mode="HTML",
             )
-        except Exception:
+            logger.info("Sent confirmation via DM")
+        except Exception as e2:
+            logger.error("Could not send confirmation via DM: %s", str(e2))
             pass  # Give up silently
