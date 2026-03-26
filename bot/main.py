@@ -70,14 +70,14 @@ def create_dispatcher() -> Dispatcher:
     return dp
 
 
-async def on_startup(dp: Dispatcher) -> None:
+async def on_startup(bot: Bot) -> None:
     """Startup hook — initialise DB, log bot info."""
     await init_db()
     me = await bot.get_me()
     logger.info("Bot started: @%s (id=%d)", me.username, me.id)
 
 
-async def on_shutdown(dp: Dispatcher) -> None:
+async def on_shutdown(bot: Bot) -> None:
     """Shutdown hook — clean up connections."""
     await close_redis()
     await bot.session.close()
