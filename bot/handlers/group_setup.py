@@ -23,7 +23,7 @@ router = Router(name="group_setup")
 logger = logging.getLogger(__name__)
 
 # Startup message handler - very specific command
-@router.command("startuptest")
+@router.message(Command("startuptest"))
 async def startup_test(message: Message) -> None:
     """Test handler to verify module is loaded."""
     print("!!! STARTUP_TEST HANDLER CALLED !!!")
