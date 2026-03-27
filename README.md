@@ -1,305 +1,399 @@
-# 🤖 Telegram Group Management Bot
+# 🤖 Modo - Telegram Group Management Bot
 
-A high-performance, multi-group Telegram Management Bot with a Web Dashboard, specializing in **Forum Topic ACL management** and granular user permissions.
+A powerful, multi-group Telegram Group Management Bot with a Web Dashboard, specializing in **Forum Topic ACL management** and granular user permissions.
 
 Built with **Aiogram 3.x** (async), **FastAPI**, **PostgreSQL**, **Redis**, and **Docker**.
 
 ---
 
-## 🏗️ Architecture Overview
+## 📋 Table of Contents
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Docker Network                           │
-│                                                                 │
-│  ┌──────────┐    ┌─────────────────────────────────────────┐   │
-│  │  Nginx   │───▶│          App Container                  │   │
-│  │ (Proxy + │    │  ┌─────────────┐  ┌──────────────────┐  │   │
-│  │   SSL)   │    │  │  Aiogram Bot│  │  FastAPI Web UI  │  │   │
-│  └──────────┘    │  │  (polling / │  │  (Dashboard +    │  │   │
-│       │          │  │   webhook)  │  │   REST API)      │  │   │
-│       │          │  └──────┬──────┘  └────────┬─────────┘  │   │
-│  ┌────▼─────┐   │          │                  │            │   │
-│  │ Certbot  │   │          └──────────┬────────┘            │   │
-│  │  (SSL)   │   │                     │                     │   │
-│  └──────────┘   └─────────────────────┼─────────────────────┘   │
-│                               ┌───────▼──────┐                  │
-│                         ┌─────┤  Core Layer  ├─────┐            │
-│                         │     └──────────────┘     │            │
-│                    ┌────▼──────┐            ┌───────▼──────┐    │
-│                    │ PostgreSQL│            │    Redis     │    │
-│                    │(Relational│            │(Cache/State/ │    │
-│                    │   Data)   │            │ Rate-limit)  │    │
-│                    └───────────┘            └──────────────┘    │
-└─────────────────────────────────────────────────────────────────┘
-```
+- [Features](#-features)
+- [For Bot Owners - Setup Guide](#-for-bot-owners---setup-guide)
+- [For Group Admins - Usage Guide](#-for-group-admins---usage-guide)
+- [Scenario-Based Use Cases](#-scenario-based-use-cases)
+- [Architecture](#-architecture)
+- [Development](#-development)
 
 ---
 
-## 📁 Project Structure
+## ✨ Features
 
-```
-my_bot_project/
-├── bot/                          # Aiogram bot logic
-│   ├── handlers/
-│   │   ├── group_setup.py        # Bot join/leave events
-│   │   ├── topic_acl.py          # ★ Topic ACL guard + commands
-│   │   ├── moderation.py         # Anti-flood, warn, ban, mute, kick
-│   │   └── welcome.py            # Greetings, captcha, service msgs
-│   ├── middlewares/
-│   │   └── db_middleware.py      # DB session + mod settings injection
-│   ├── filters/
-│   │   └── admin_filter.py       # IsGroupAdmin, IsBotAdmin, IsOwner
-│   ├── keyboards/                # Reusable InlineKeyboard builders
-│   ├── utils/
-│   │   └── helpers.py            # format_template, send_and_delete, etc.
-│   └── main.py                   # Dispatcher setup + bot entry point
-│
-├── web/                          # FastAPI dashboard
-│   ├── app.py                    # Routes + auth + API endpoints
-│   ├── health.py                 # /health check endpoint
-│   ├── lifespan.py               # Startup/shutdown hooks
-│   ├── templates/
-│   │   ├── auth/login.html       # Telegram Login Widget page
-│   │   ├── dashboard/
-│   │   │   ├── home.html         # Group list
-│   │   │   ├── group_settings.html # Per-group settings + toggles
-│   │   │   └── topics.html       # Topic ACL management
-│   │   └── partials/sidebar.html
-│   └── static/                   # CSS, JS, images
-│
-├── core/                         # Shared business logic
-│   ├── config.py                 # Pydantic Settings loader
-│   ├── models/
-│   │   └── database.py           # SQLAlchemy ORM models
-│   ├── services/
-│   │   ├── group_service.py      # DB operations (groups, ACL, templates)
-│   │   └── cache_service.py      # Redis operations
-│   └── utils/
-│       └── admin_sync.py         # Telegram admin list → DB sync
-│
-├── migrations/                   # Alembic migrations
-│   ├── env.py
-│   └── versions/
-│       └── 0001_initial.py       # Initial schema
-│
-├── nginx/
-│   ├── nginx.conf                # Main Nginx config
-│   └── conf.d/app.conf           # Virtual host + SSL config
-│
-├── data/                         # Persistent volumes (git-ignored)
-│   ├── pg_data/                  # PostgreSQL data
-│   ├── redis_data/               # Redis AOF data
-│   ├── certbot/                  # Let's Encrypt certs
-│   └── logs/                     # App + Nginx logs
-│
-├── docker-compose.yml
-├── Dockerfile
-├── entrypoint.sh
-├── requirements.txt
-├── alembic.ini
-└── .env                          # ← Fill this in before starting
-```
+### 🔒 Forum Topic ACL (Access Control List)
+- Restrict specific forum topics to whitelisted users only
+- Per-topic user whitelist management
+- Automatic message deletion for unauthorized users
+
+### 🛡️ Moderation Tools
+- **Anti-flood**: Rate limiting with configurable thresholds
+- **Anti-link**: Auto-delete messages with URLs
+- **Word Filter**: Block banned words automatically
+- **Warn System**: `/warn`, `/warnings`, `/resetwarns`
+- **Mute/Ban/Kick**: Quick moderation actions
+- **Captcha**: Math challenge for new members
+
+### 📝 Customizable Messages
+- Welcome messages
+- Farewell messages  
+- Warning templates
+- Captcha challenges
+- All editable via web dashboard
+
+### 🌐 Web Dashboard
+- Telegram Login (no password needed)
+- Manage all your groups from one place
+- Real-time activity logs
+- REST API for automation
 
 ---
 
-## 🚀 Quick Start
+## 🚀 For Bot Owners - Setup Guide
 
-### 1. Clone and Configure
+### Prerequisites
+
+- A server with Docker and Docker Compose installed
+- A domain name pointing to your server IP
+- A Telegram bot token from [@BotFather](https://t.me/BotFather)
+
+### Step 1: Clone the Repository
 
 ```bash
-git clone <your-repo> my_bot_project
-cd my_bot_project
-cp .env .env.example   # Keep a backup
+git clone https://github.com/netadminplus/modo.git
+cd modo
+```
+
+### Step 2: Configure Environment
+
+```bash
+cp .env.example .env
+nano .env
 ```
 
 Edit `.env` with your values:
 
 ```ini
+# Bot Configuration
 BOT_TOKEN=123456789:AAF...          # From @BotFather
 BOT_USERNAME=your_bot_username       # Without @
-ADMIN_IDS=123456789                  # Your Telegram user ID
-POSTGRES_PASSWORD=change_this        # Strong password
-REDIS_PASSWORD=change_this_too
-SECRET_KEY=random_64_char_string     # python -c "import secrets; print(secrets.token_hex(32))"
+ADMIN_IDS=123456789                  # Your Telegram user ID (get from @userinfobot)
+
+# Database
+POSTGRES_USER=botadmin
+POSTGRES_PASSWORD=your_secure_password_here
+POSTGRES_DB=telegram_bot
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+DATABASE_URL=postgresql+asyncpg://botadmin:your_secure_password_here@postgres:5432/telegram_bot
+
+# Redis
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=your_redis_password_here
+REDIS_URL=redis://:your_redis_password_here@redis:6379/0
+
+# Web Dashboard
+SECRET_KEY=generate_random_64_char_string_here
 DOMAIN=yourdomain.com
-CERTBOT_EMAIL=admin@yourdomain.com
+WEB_PORT=8000
+
+# Other
+DEBUG=false
+LOG_LEVEL=INFO
+TIMEZONE=UTC
 ```
 
-### 2. DNS Setup
+**Get your Telegram User ID:** Message [@userinfobot](https://t.me/userinfobot) on Telegram
 
-Point your domain's A record to your server's IP:
+**Generate SECRET_KEY:** Run `python3 -c "import secrets; print(secrets.token_hex(32))"`
+
+### Step 3: DNS Configuration
+
+Point your domain to your server:
+
 ```
-A  yourdomain.com  →  YOUR_SERVER_IP
+Type: A
+Name: @ (or yourdomain.com)
+Value: YOUR_SERVER_IP
+TTL: 300
 ```
 
-### 3. Get SSL Certificate (first time only)
+### Step 4: SSL Certificate (First Time Only)
 
 ```bash
-# Start Nginx in HTTP-only mode first for ACME challenge
+# Start nginx
 docker compose up -d nginx
+
+# Get SSL certificate
 docker compose run --rm certbot
+
+# Restart nginx with SSL
 docker compose restart nginx
 ```
 
-### 4. Launch Everything
+### Step 5: Start All Services
 
 ```bash
 docker compose up -d
-docker compose logs -f app
 ```
 
-That's it! Your bot and dashboard are live. 🎉
-
----
-
-## ⚙️ Core Features
-
-### 🔒 Topic ACL (Forum Mode)
-
-The most powerful feature. For Telegram groups with **Forum Mode** enabled:
-
-| Command | Description |
-|---------|-------------|
-| `/restrict_topic` | Lock the current topic (must be used inside the topic) |
-| `/unrestrict_topic` | Open the topic to everyone |
-| `/allow_user <id>` | Whitelist a user in the current topic |
-| `/deny_user <id>` | Remove a user from the whitelist |
-| `/topic_users` | List all whitelisted users |
-
-**How it works:**
-1. Every message in a forum topic is checked.
-2. If the topic is restricted → check if sender is admin or whitelisted.
-3. If not → message is **instantly deleted** + self-deleting warning sent.
-4. All checks use **Redis caching** (5 min TTL) for near-zero DB load.
-
-### 🛡️ Moderation Suite
-
-| Feature | Description |
-|---------|-------------|
-| **Anti-flood** | Rate-limit per user/group with configurable threshold, window, and action (mute/kick/ban) |
-| **Anti-link** | Auto-delete messages containing URLs from non-admins |
-| **Word filter** | Configurable comma-separated banned words list |
-| **Warn system** | `/warn`, `/warnings`, `/resetwarns` with auto-action on max warnings |
-| **Captcha** | Math captcha for new members; restricts until solved |
-| **Welcome/Farewell** | Customizable greeting + optional self-deleting farewell |
-| **Service msg cleaner** | Auto-delete Telegram join/left service messages |
-
-### 📝 Message Templates
-
-Every bot response is fully customizable via the Web Dashboard or `/settings`. Available variables:
-
-| Variable | Description |
-|----------|-------------|
-| `{user_mention}` | HTML mention of the user |
-| `{user_name}` | Plain display name |
-| `{group_title}` | Group name |
-| `{count}` | Current warning count |
-| `{max}` | Maximum warnings |
-| `{reason}` | Warning/action reason |
-| `{duration}` | Mute duration string |
-| `{a}`, `{b}` | Captcha math operands |
-
----
-
-## 🌐 Web Dashboard
-
-Access at `https://yourdomain.com`
-
-### Authentication
-Uses the **Telegram Login Widget** — no separate password needed. Users authenticate with their Telegram account. Only group admins (synced from Telegram) can access their group's settings.
-
-### Pages
-
-| Page | URL | Description |
-|------|-----|-------------|
-| Login | `/login` | Telegram Login Widget |
-| Dashboard | `/dashboard` | List of administered groups |
-| Group Settings | `/dashboard/group/{id}` | All settings for one group |
-| Topic ACL | `/dashboard/group/{id}/topics` | Manage restricted topics |
-
-### REST API
-
-All settings changes go through the REST API (used by the dashboard JS):
-
-```
-POST   /api/group/{id}/settings                    Update moderation toggles
-POST   /api/group/{id}/template/{key}              Update a message template
-POST   /api/group/{id}/topic/{tid}/restrict        Restrict a topic
-DELETE /api/group/{id}/topic/{tid}/restrict        Unrestrict a topic
-POST   /api/group/{id}/topic/{tid}/user/{uid}      Whitelist a user
-DELETE /api/group/{id}/topic/{tid}/user/{uid}      Remove from whitelist
-GET    /api/group/{id}/logs                        Activity log (JSON)
-GET    /health                                     Service health check
-```
-
----
-
-## 🗄️ Database Schema
-
-```
-groups                  — Registered Telegram groups
-telegram_users          — Cached user profiles
-group_admins            — Admin list per group (synced from API)
-topic_acls              — ★ Topic restriction + whitelist entries
-moderation_settings     — Per-group feature toggles
-message_templates       — Editable message templates
-user_warnings           — Warning counters
-activity_logs           — Audit trail of all moderation actions
-captcha_pending         — Pending captcha verifications
-```
-
-### Running Migrations
+### Step 6: Verify Everything Works
 
 ```bash
-# Apply all migrations
-docker compose exec app alembic upgrade head
+# Check all containers are running
+docker compose ps
 
-# Generate a new migration after model changes
-docker compose exec app alembic revision --autogenerate -m "add_new_feature"
+# View bot logs
+docker compose logs -f app
 
-# Roll back one step
-docker compose exec app alembic downgrade -1
+# Check health endpoint
+curl https://yourdomain.com/health
+```
+
+Expected response: `{"status":"ok"}`
+
+### Step 7: Access Web Dashboard
+
+Open `https://yourdomain.com` in your browser and log in with Telegram.
+
+---
+
+## 👥 For Group Admins - Usage Guide
+
+### Adding Bot to Your Group
+
+1. **Find the bot** on Telegram (search for your bot's username)
+2. **Add to group**: Go to your group → Group Info → Add Member → Select the bot
+3. **Make bot admin**: Group Info → Edit → Administrators → Add Admin → Select bot
+
+### Required Bot Permissions
+
+The bot needs these admin permissions:
+
+- ✅ Delete messages
+- ✅ Ban users  
+- ✅ Restrict members (mute)
+- ✅ Manage topics (for Forum groups)
+- ✅ Pin messages (optional)
+
+### Register Your Group
+
+Once the bot is admin in your group:
+
+1. Open the group chat
+2. Send: `/register`
+3. Bot replies: `✅ Group registered!`
+4. Your group now appears in the web dashboard
+
+### Access Group Settings
+
+1. Go to `https://yourdomain.com`
+2. Click "Login with Telegram"
+3. Authorize the bot
+4. Select your group from the dashboard
+
+---
+
+## 📖 Scenario-Based Use Cases
+
+### Scenario 1: Setting Up a Support Forum
+
+**Situation:** You run a customer support group with different topics for different products.
+
+**Setup:**
+```
+1. Enable Forum Mode in your Telegram group
+2. Create topics: "Product A", "Product B", "General"
+3. Add bot and make it admin
+4. Send /register in the group
+5. In dashboard, go to Topics tab
+6. Restrict "Product A" topic
+7. Whitelist only your Product A support team
+```
+
+**Commands:**
+```
+/restrict_topic          # Lock current topic
+/allow_user 123456789    # Allow specific user
+/topic_users             # See allowed users
+```
+
+**Result:** Only whitelisted support staff can post in Product A topic. Customers can read but not spam.
+
+---
+
+### Scenario 2: Preventing Flood and Spam
+
+**Situation:** Your group gets flooded with messages and links.
+
+**Dashboard Setup:**
+1. Go to Group Settings → Moderation
+2. Enable "Anti-Flood"
+3. Set threshold: 5 messages per 10 seconds
+4. Action: Mute for 5 minutes
+5. Enable "Anti-Link"
+6. Add banned words: "crypto", "investment", "free money"
+
+**Result:** Users who spam or post links get automatically muted. Banned words are auto-deleted.
+
+---
+
+### Scenario 3: Warning System for Rule Breakers
+
+**Situation:** You want a fair warning system before banning.
+
+**Dashboard Setup:**
+1. Group Settings → Moderation
+2. Set Max Warnings: 3
+3. Auto-action: Ban
+
+**In Group:**
+```
+/warn @username Spamming
+/warn @username          # Reply to message
+/warnings @username      # Check warning count
+/resetwarns @username    # Reset warnings
+```
+
+**Flow:**
+- 1st warning: User gets warned
+- 2nd warning: User gets warned  
+- 3rd warning: User is automatically banned
+
+---
+
+### Scenario 4: New Member Verification
+
+**Situation:** Bots and spammers join your group.
+
+**Dashboard Setup:**
+1. Group Settings → Moderation
+2. Enable "Captcha"
+3. Customize welcome message: `Welcome {user_mention}! Solve: {a} + {b} = ?`
+
+**What Happens:**
+1. New member joins
+2. Bot restricts them (read-only)
+3. Bot sends captcha: "Solve: 5 + 3 = ?"
+4. User replies: "8"
+5. Bot unmutes and welcomes them
+
+**Result:** Bots fail captcha and leave. Real humans pass easily.
+
+---
+
+### Scenario 5: Multi-Group Management
+
+**Situation:** You manage 10 different groups.
+
+**Dashboard Features:**
+1. Single login shows all your groups
+2. Switch between groups instantly
+3. Copy settings from one group to another
+4. View activity logs across all groups
+5. Bulk actions (coming soon)
+
+**Benefit:** No need to visit each group individually. Manage everything from one dashboard.
+
+---
+
+### Scenario 6: Temporary Restriction
+
+**Situation:** Your group is under attack, need emergency lockdown.
+
+**Quick Actions:**
+```
+1. Dashboard → Group Settings
+2. Toggle "Restrict All Members" 
+3. Only admins can post
+4. Attack stops immediately
+5. Toggle off when safe
+```
+
+**Alternative:** Restrict specific topics instead of entire group.
+
+---
+
+### Scenario 7: Custom Message Templates
+
+**Situation:** You want personalized messages in your brand voice.
+
+**Dashboard:**
+1. Group Settings → Message Templates
+2. Edit any template:
+   - Welcome message
+   - Warning message
+   - Captcha challenge
+   - Farewell message
+
+**Variables Available:**
+- `{user_mention}` - @username link
+- `{user_name}` - Display name
+- `{group_title}` - Group name
+- `{count}` - Warning count
+- `{max}` - Max warnings
+- `{reason}` - Warning reason
+- `{duration}` - Mute duration
+
+**Example:**
+```
+Welcome {user_mention} to {group_title}! 
+Please read the rules and enjoy your stay.
 ```
 
 ---
 
-## 🔧 Bot Permissions Required
+## 🏗️ Architecture
 
-Make the bot an **admin** with these permissions:
-
-- ✅ Delete messages
-- ✅ Ban users
-- ✅ Restrict members
-- ✅ Manage topics (for Forum mode)
-- ✅ Pin messages (optional)
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Docker Network                       │
+│                                                         │
+│  ┌──────────┐    ┌─────────────────────────────────┐   │
+│  │  Nginx   │───▶│         App Container           │   │
+│  │ (Proxy)  │    │  ┌─────────┐  ┌──────────────┐  │   │
+│  └──────────┘    │  │   Bot   │  │  Web Dashboard│  │   │
+│       │          │  │(Aiogram)│  │   (FastAPI)  │  │   │
+│  ┌────▼─────┐   │  └────┬────┘  └──────┬───────┘  │   │
+│  │ Certbot  │   │       │              │          │   │
+│  │  (SSL)   │   │       └──────┬───────┘          │   │
+│  └──────────┘   │              │                  │   │
+│                 │       ┌──────▼──────┐           │   │
+│                 │       │ Core Layer  │           │   │
+│                 │  ┌────┴─────┐  ┌────┴──────┐    │   │
+│                 │  │PostgreSQL│  │  Redis    │    │   │
+│                 │  │  (Data)  │  │  (Cache)  │    │   │
+│                 │  └──────────┘  └───────────┘    │   │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
 ## 🛠️ Development
 
-### Run locally without Docker
+### Local Development Setup
 
 ```bash
-# Install dependencies
+# Clone and setup
+git clone https://github.com/netadminplus/modo.git
+cd modo
 python -m venv venv
-source venv/bin/activate
+source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 
-# Start PostgreSQL and Redis (via Docker)
+# Start databases
 docker compose up -d postgres redis
 
-# Run DB migrations
+# Run migrations
 alembic upgrade head
 
-# Start the bot (polling mode)
-python -m bot.main polling &
+# Start bot (terminal 1)
+python -m bot.main polling
 
-# Start the web dashboard
+# Start web dashboard (terminal 2)
 uvicorn web.app:app --reload --port 8000
 ```
 
-### Environment for development
+### Environment for Development
 
 ```ini
 DEBUG=true
@@ -307,49 +401,82 @@ LOG_LEVEL=DEBUG
 DOMAIN=localhost
 ```
 
----
+### Running Migrations
 
-## 📊 Redis Key Schema
+```bash
+# Create new migration
+alembic revision --autogenerate -m "add_feature"
 
-| Key Pattern | TTL | Purpose |
-|-------------|-----|---------|
-| `flood:{group}:{user}` | `flood_window_secs` | Message counter |
-| `topic_restricted:{group}:{thread}` | 5 min | Restriction cache |
-| `topic_allowed:{group}:{thread}:{user}` | 5 min | Whitelist cache |
-| `mod_settings:{group}` | 10 min | Settings cache |
-| `captcha:{group}:{user}` | 5 min | Pending captcha |
-| `session:{token}` | 24h | Dashboard session |
+# Apply migrations
+alembic upgrade head
 
----
-
-## 🔐 Security Notes
-
-- All secrets in `.env` — never committed to git (`.gitignore` includes it)
-- Dashboard sessions stored in Redis (not cookies) — revocable
-- Telegram Login Widget verified with HMAC-SHA256
-- Nginx rate-limits login and API endpoints
-- Non-root Docker user (`botuser`)
-- PostgreSQL and Redis bound to `127.0.0.1` only
-- HSTS enabled with 1-year max-age
-- TLS 1.2/1.3 only with hardened cipher suite
+# Rollback
+alembic downgrade -1
+```
 
 ---
 
-## 📈 Extending the Bot
+## 📊 Tech Stack
 
-### Add a new moderation feature
+| Component | Technology |
+|-----------|------------|
+| Bot Framework | Aiogram 3.x |
+| Web Framework | FastAPI |
+| Database | PostgreSQL 16 |
+| Cache | Redis 7 |
+| Web Server | Nginx |
+| SSL | Let's Encrypt (Certbot) |
+| Container | Docker + Docker Compose |
+| ORM | SQLAlchemy 2.0 |
+| Templates | Jinja2 |
 
-1. Add a column to `ModerationSettings` in `core/models/database.py`
-2. Create a new Alembic migration: `alembic revision --autogenerate -m "add_X"`
-3. Add the handler in `bot/handlers/` and register the router in `bot/main.py`
-4. Add the toggle in `web/templates/dashboard/group_settings.html`
+---
 
-### Add a new group
+## 🔐 Security
 
-Just add the bot to a Telegram group and make it an admin. The `group_setup.py` handler auto-registers it.
+- All secrets in `.env` (never committed)
+- Dashboard sessions in Redis (revocable)
+- Telegram Login verified with HMAC-SHA256
+- Nginx rate-limits login and API
+- Non-root Docker user
+- Database bound to localhost only
+- HSTS + TLS 1.2/1.3 only
 
 ---
 
 ## 📜 License
 
 MIT License — free to use, modify, and distribute.
+
+---
+
+## 🆘 Support
+
+- **Issues:** [GitHub Issues](https://github.com/netadminplus/modo/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/netadminplus/modo/discussions)
+
+---
+
+## 🎯 Quick Command Reference
+
+### Bot Commands
+
+| Command | Description |
+|---------|-------------|
+| `/register` | Register current group |
+| `/settings` | Open web dashboard |
+| `/warn` | Warn a user |
+| `/warnings` | Check user warnings |
+| `/resetwarns` | Reset user warnings |
+| `/mute` | Temporarily mute user |
+| `/ban` | Ban user |
+| `/kick` | Kick user |
+| `/restrict_topic` | Lock current topic |
+| `/unrestrict_topic` | Unlock topic |
+| `/allow_user` | Whitelist user in topic |
+| `/deny_user` | Remove from whitelist |
+| `/topic_users` | List allowed users |
+
+---
+
+Made with ❤️ by [NetAdminPlus](https://github.com/netadminplus)
