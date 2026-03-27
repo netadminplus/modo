@@ -17,17 +17,8 @@ from bot.filters.admin_filter import IsGroupAdmin
 from core.services.group_service import get_or_create_group
 from core.utils.admin_sync import sync_admins_for_group
 
-print("!!! group_setup.py MODULE LOADED !!!")
-
 router = Router(name="group_setup")
 logger = logging.getLogger(__name__)
-
-# Startup message handler - very specific command
-@router.message(Command("startuptest"))
-async def startup_test(message: Message) -> None:
-    """Test handler to verify module is loaded."""
-    print("!!! STARTUP_TEST HANDLER CALLED !!!")
-    await message.reply("✅ Module loaded! Test successful.")
 
 
 @router.my_chat_member(
